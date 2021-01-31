@@ -1,5 +1,5 @@
 import type { Agent } from 'http'
-import nf from 'node-fetch'
+import fetch from 'node-fetch'
 
 const { version } = require('../package.json'); // eslint-disable-line
 
@@ -13,7 +13,7 @@ const utils = {
    * Generic POST request
    */
   call: async function (host: string, path: string, data: any, agent: Agent | undefined) {
-    const resp = await nf(`${host}/${path}`, { agent, body: JSON.stringify(data), headers, method: 'POST' })
+    const resp = await fetch(`${host}/${path}`, { agent, body: JSON.stringify(data), headers, method: 'POST' })
     let body: string | any = await resp.text()
     if (body.length === 0) return ''
     try {
@@ -51,37 +51,6 @@ const utils = {
     const negative = (hash as any).readInt8(0) < 0
     if (negative) performTwosCompliment(hash)
     return (negative ? '-' : '') + hash.toString('hex').replace(/^0+/g, '')
-  },
-
-  callbackify: function (f: any, maxParams: number) {
-    return function (...args: any[]) {
-      let cb: Function | undefined
-      let i: number = args.length
-      while (cb === undefined && i > 0) {
-        if (typeof args[i - 1] === 'function') {
-          cb = args[i - 1]
-          args[i - 1] = undefined
-          args[maxParams] = cb
-          break
-        }
-        i--
-      }
-      return f(...args).then(
-        (r: any) => {
-          if (r[0] !== undefined) {
-            cb?.(undefined, ...r)
-            return r[r.length - 1]
-          } else {
-            cb?.(undefined, r)
-            return r
-          }
-        },
-        (err: unknown) => {
-          if (typeof cb === 'function') cb(err)
-          else throw err
-        }
-      )
-    }
   }
 }
 
@@ -105,6 +74,5 @@ function performTwosCompliment (buffer: any): void {
   }
 }
 
-utils.call = utils.callbackify(utils.call, 4)
 
 export = utils

@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
-import utils from './utils.js'
-import nf from 'node-fetch'
+import utils from '../Util/Util'
+import fetch from 'node-fetch'
 import type { Agent } from 'http'
 
 const defaultHost = 'https://sessionserver.mojang.com'
@@ -43,14 +43,11 @@ const Server = {
   hasJoined: async function (username: string, serverid: string, sharedsecret: string, serverkey: string) {
     const host: string = (this as any)?.host as string ?? defaultHost
     const hash: string = utils.mcHexDigest(createHash('sha1').update(serverid).update(sharedsecret).update(serverkey).digest())
-    const data = await nf(`${host}/session/minecraft/hasJoined?username=${username}&serverId=${hash}`, { agent: (this as any)?.agent as Agent, method: 'GET' })
+    const data = await fetch(`${host}/session/minecraft/hasJoined?username=${username}&serverId=${hash}`, { agent: (this as any)?.agent as Agent, method: 'GET' })
     const body = JSON.parse(await data.text())
     if (body.id !== undefined) return body
     else throw new Error('Failed to verify username!')
   }
 }
-
-Server.join = utils.callbackify(Server.join, 5)
-Server.hasJoined = utils.callbackify(Server.hasJoined, 4)
 
 export = Server
