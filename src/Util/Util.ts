@@ -1,8 +1,16 @@
 import type { Agent } from 'http'
+
 import fetch from 'node-fetch'
 
 const { version } = require('../package.json'); // eslint-disable-line
 
+/**
+ * Send stuff somewhere
+ * @param {String} host  host
+ * @param {String} path path
+ * @param {Object} data data to send
+ * @param {Agent} [agent] agent
+ */
 export async function call(host: string, path: string, data: any, agent?: Agent) {
   const resp = await fetch(`${host}/${path}`, {
     agent,
@@ -44,7 +52,7 @@ export async function call(host: string, path: string, data: any, agent?: Agent)
  * @param  {String} encoding Optional, passed to Buffer() if hash is a string
  * @return {String}          Stupidified hash
  */
-export function mcHexDigest(hash: Buffer | String, encoding?: String): any {
+export function mcHexDigest(hash: Buffer | String, encoding?: String): string {
   if (!(hash instanceof Buffer)) {
     hash = (Buffer as any).from(hash, encoding)
   }
