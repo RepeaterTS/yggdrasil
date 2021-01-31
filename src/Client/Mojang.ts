@@ -1,63 +1,101 @@
 import uuid from 'uuid'
-import * as utils from '../Util/Util'
+import { createHash } from 'crypto'
+import fetch from 'node-fetch'
+import { call, mcHexDigest } from '../Util/Util'
 import type { Agent } from 'http'
 
 import { Constants } from '../Util/Constants'
 
-const Client = {
-  /**
-   * Attempts to authenticate a user.
-   * @param  {Object}   options Config object
-   */
-  auth: async function (options: { agent?: string, username: string, password: string, token?: string, version: string, requestUser?: boolean }) {
-    if (options.token === null) delete options.token
-    else options.token = options.token ?? uuid.v4()
+/**
+ * Attempts to authenticate a user.
+ * @param {Object} options Config object
+ */
+export async function auth(options: { agent?: string, username: string, password: string, token?: string, version: string, requestUser?: boolean }, agent?:Agent) {
+  if (options.token === null) delete options.token
+  else options.token = options.token ?? uuid.v4()
 
-    options.agent = options.agent ?? Constants.DefaultUserAgent
+  options.agent = options.agent ?? Constants.DefaultUserAgent
 
-    return await utils.call((this as any)?.host as string ?? Constants.Mojang.DefaultHost,
-      'authenticate',
-      {
-        agent: {
-          name: options.agent,
-          version: options.agent === Constants.DefaultUserAgent ? 1 : options.version
-        },
-        username: options.username,
-        password: options.password,
-        clientToken: options.token,
-        requestUser: options.requestUser === true
+  return await call(Constants.Mojang.DefaultHost,
+    'authenticate',
+    {
+      agent: {
+        name: options.agent,
+        version: options.agent === Constants.DefaultUserAgent ? 1 : options.version
       },
-      (this as any)?.agent as Agent
-    )
-  },
-  /**
-   * Refreshes a accessToken.
-   * @param  {String}   accessToken Old Access Token
-   * @param  {String}   clientToken Client Token
-   * @param  {String=false}   requestUser Whether to request the user object
-   */
-  refresh: async function (accessToken: string, clientToken: string, requestUser?: boolean) {
-    const data = await utils.call((this as any)?.host as string ?? Constants.Mojang.DefaultHost, 'refresh', { accessToken, clientToken, requestUser: requestUser ?? false }, (this as any)?.agent as Agent)
-    if (data.clientToken !== clientToken) throw new Error('clientToken assertion failed')
-    return [data.accessToken, data]
-  },
-  
-  /**
-   * Validates an access token
-   * @param  {String}   accessToken Token to validate
-   */
-  validate: async function (accessToken: string) {
-    return await utils.call((this as any)?.host as string ?? Constants.Mojang.DefaultHost, 'validate', { accessToken }, (this as any)?.agent as Agent)
-  },
-
-  /**
-   * Invalidates all access tokens.
-   * @param  {String}   username User's user
-   * @param  {String}   password User's pass
-   */
-  signout: async function (username: string, password: string) {
-    return await utils.call((this as any)?.host as string ?? Constants.Mojang.DefaultHost, 'signout', { username, password }, (this as any)?.agent as Agent)
-  }
+      username: options.username,
+      password: options.password,
+      clientToken: options.token,
+      requestUser: options.requestUser === true
+    }, 
+    agent
+  )
 }
 
-export = Client
+/**
+ * Refreshes a accessToken.
+ * @param  {String}   accessToken Old Access Token
+ * @param  {String}   clientToken Client Token
+ * @param  {String=false}   requestUser Whether to request the user object
+ */
+export async function refresh(accessToken: string, clientToken: string, requestUser?: boolean, agent?: Agent) {
+  const data = await call(Constants.Mojang.DefaultHost, 'refresh', { accessToken, clientToken, requestUser: requestUser ?? false }, agent)
+  if (data.clientToken !== clientToken) throw new Error('clientToken assertion failed')
+  return [data.accessToken, data]
+}
+
+/**
+ * Validates an access token
+ * @param  {String}   accessToken Token to validate
+ */
+export async function validate(accessToken: string, agent?: Agent) {
+  return call(Constants.Mojang.DefaultHost, 'validate', { accessToken }, agent)
+}
+
+/**
+ * Invalidates all access tokens.
+ * @param  {String}   username User's user
+ * @param  {String}   password User's pass
+ */
+export async function signout(username: string, password: string, agent?: Agent) {
+  return call(Constants.Mojang.DefaultHost, 'signout', { username, password }, agent)
+}
+
+/**
+ * Client's Mojang handshake call
+ * See http://wiki.vg/Protocol_Encryption#Client
+ * @param  {String}   accessToken        Client's accessToken
+ * @param  {String}   selectedProfile      Client's selectedProfile
+ * @param  {String}   serverid     ASCII encoding of the server ID
+ * @param  {String}   sharedsecret Server's secret string
+ * @param  {String}   serverkey    Server's encoded public key
+ * @param  {Function} cb           (is okay, data returned by server)
+ * @async
+ */
+export async function join(accessToken: string, selectedProfile: string, serverid: string, sharedsecret: string, serverkey: string, agent?: Agent) {
+  return await call(Constants.Mojang.DefaultHost,
+    'session/minecraft/join',
+    {
+      accessToken,
+      selectedProfile,
+      serverId: mcHexDigest(createHash('sha1').update(serverid).update(sharedsecret).update(serverkey).digest())
+    }, agent)
+}
+
+/**
+ * Server's Mojang handshake call
+ * See https://wiki.vg/Protocol_Encryption#Server
+ * @param  {String}   username     Client's username, case-sensitive
+ * @param  {String}   serverid     ASCII encoding of the server ID
+ * @param  {String}   sharedsecret Server's secret string
+ * @param  {String}   serverkey    Server's encoded public key
+ * @returns {object} Client Information
+ * @async
+ */
+export async function joined(username: string, serverid: string, sharedsecret: string, serverkey: string, agent?: Agent) {
+  const hash: string = mcHexDigest(createHash('sha1').update(serverid).update(sharedsecret).update(serverkey).digest())
+  const data = await fetch(`${Constants.Mojang.DefaultHost}/session/minecraft/hasJoined?username=${username}&serverId=${hash}`, { agent, method: 'GET' })
+  const body = JSON.parse(await data.text())
+  if (body.id !== undefined) return body
+  else throw new Error('Failed to verify username!')
+}
