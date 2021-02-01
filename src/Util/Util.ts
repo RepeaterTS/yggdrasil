@@ -1,6 +1,9 @@
 import type { Agent } from 'http'
 
 import fetch from 'node-fetch'
+import os from 'os';
+import crypto from 'crypto'
+import path from 'path'
 
 const { version } = require('../package.json'); // eslint-disable-line
 
@@ -80,4 +83,16 @@ function performTwosCompliment(buffer: any): void {
       buffer.writeUInt8(newByte, i)
     }
   }
+}
+
+export function cacheLocation() {
+  const OS = os.type();
+  if (OS === 'Darwin') return path.join(os.homedir(), '/Library/Application Support/minecraft');
+  // eslint-disable-next-line no-process-env
+  if (OS === 'win32' || OS === 'Windows_NT') return path.join(process.env.APPDATA as string, '.minecraft') ;
+  return path.join(os.homedir(), '.minecraft');
+}
+
+export function hash(string: string) {
+  return crypto.createHash('sha1').update(string || '', 'binary').digest('hex');
 }

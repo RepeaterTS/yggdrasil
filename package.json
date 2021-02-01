@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@repeaterts/utilities": "^1.0.9",
+    "fs-nextra": "^0.5.1",
     "node-fetch": "^2.6.1",
     "uuid": "^8.3.2"
   }
