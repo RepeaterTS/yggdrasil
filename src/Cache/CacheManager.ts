@@ -76,8 +76,8 @@ export class CacheManager {
 	 * @param id The document name
 	 * @param data The unknown with all properties you want to insert into the document
 	 */
-    public async create(username: string, data: object = {}): Promise<void> {
-        await fs.outputJSONAtomic(resolve(this.baseDirectory, `${username}.json`), { username, ...data })
+    public async create(id: string, data: object = {}): Promise<void> {
+        await fs.outputJSONAtomic(resolve(this.baseDirectory, `${id}.json`), { id, ...data })
     }
 
     /**
