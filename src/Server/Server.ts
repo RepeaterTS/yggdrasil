@@ -1,9 +1,9 @@
-import type { Agent } from 'http'
+import type { Agent } from "http";
 
-import { createHash } from 'crypto'
-import { call, mcHexDigest } from '../Util/Util'
-import fetch from 'node-fetch'
-import { Constants } from '../Util/Constants'
+import { createHash } from "crypto";
+import { call, mcHexDigest } from "../Util/Util";
+import fetch from "node-fetch";
+import { Constants } from "../Util/Constants";
 
 /**
  * Client's Mojang handshake call
@@ -16,17 +16,30 @@ import { Constants } from '../Util/Constants'
  * @param  {Agent}    [agent]  Agent
  * @async
  */
-export async function join(accessToken: string, selectedProfile: string, serverid: string, sharedsecret: string, serverkey: string, agent?: Agent) {
-  return await call(
+export async function join(
+  accessToken: string,
+  selectedProfile: string,
+  serverid: string,
+  sharedsecret: string,
+  serverkey: string,
+  agent?: Agent
+) {
+  return call(
     Constants.Mojang.DefaultHost,
-    'session/minecraft/join',
+    "session/minecraft/join",
     {
       accessToken,
       selectedProfile,
-      serverId: mcHexDigest(createHash('sha1').update(serverid).update(sharedsecret).update(serverkey).digest())
+      serverId: mcHexDigest(
+        createHash("sha1")
+          .update(serverid)
+          .update(sharedsecret)
+          .update(serverkey)
+          .digest()
+      ),
     },
     agent
-  )
+  );
 }
 
 /**
@@ -38,10 +51,25 @@ export async function join(accessToken: string, selectedProfile: string, serveri
  * @param  {Agent}    [agent]  Agent
  * @async
  */
-export async function hasJoined(username: string, serverid: string, sharedsecret: string, serverkey: string, agent?: Agent) {
-  const hash: string = mcHexDigest(createHash('sha1').update(serverid).update(sharedsecret).update(serverkey).digest())
-  const data = await fetch(`${Constants.Mojang.DefaultHost}/session/minecraft/hasJoined?username=${username}&serverId=${hash}`, { agent, method: 'GET' })
-  const body = JSON.parse(await data.text())
-  if (body.id !== undefined) return body
-  else throw new Error('Failed to verify username!')
+export async function hasJoined(
+  username: string,
+  serverid: string,
+  sharedsecret: string,
+  serverkey: string,
+  agent?: Agent
+) {
+  const hash: string = mcHexDigest(
+    createHash("sha1")
+      .update(serverid)
+      .update(sharedsecret)
+      .update(serverkey)
+      .digest()
+  );
+  const data = await fetch(
+    `${Constants.Mojang.DefaultHost}/session/minecraft/hasJoined?username=${username}&serverId=${hash}`,
+    { agent, method: "GET" }
+  );
+  const body = JSON.parse(await data.text());
+  if (body.id !== undefined) return body;
+  throw new Error("Failed to verify username!");
 }

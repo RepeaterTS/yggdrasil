@@ -1,8 +1,8 @@
-import type { Agent } from 'http'
+import type { Agent } from "http";
 
-import { v4 } from 'uuid'
-import { call } from '../Util/Util'
-import { Constants } from '../Util/Constants'
+import { v4 } from "uuid";
+import { call } from "../Util/Util";
+import { Constants } from "../Util/Constants";
 
 /**
  * Attempts to authenticate a user.
@@ -10,26 +10,38 @@ import { Constants } from '../Util/Constants'
  * @param  {Agent}    [agent]  Agent
  * @async
  */
-export async function auth(options: { agent?: string, username: string, password: string, token?: string, version: string, requestUser?: boolean }, agent?: Agent) {
-  if (options.token === null) delete options.token
-  else options.token = options.token ?? v4()
+export async function auth(
+  options: {
+    agent?: string;
+    username: string;
+    password: string;
+    token?: string;
+    version: string;
+    requestUser?: boolean;
+  },
+  agent?: Agent
+) {
+  if (options.token === null) delete options.token;
+  else options.token = options.token ?? v4();
 
-  options.agent = options.agent ?? Constants.DefaultUserAgent
+  options.agent = options.agent ?? Constants.DefaultUserAgent;
 
-  return await call(Constants.Mojang.DefaultHost,
-    'authenticate',
+  return call(
+    Constants.Mojang.DefaultHost,
+    "authenticate",
     {
       agent: {
         name: options.agent,
-        version: options.agent === Constants.DefaultUserAgent ? 1 : options.version
+        version:
+          options.agent === Constants.DefaultUserAgent ? 1 : options.version,
       },
       username: options.username,
       password: options.password,
       clientToken: options.token,
-      requestUser: options.requestUser === true
+      requestUser: options.requestUser === true,
     },
     agent
-  )
+  );
 }
 
 /**
@@ -40,10 +52,21 @@ export async function auth(options: { agent?: string, username: string, password
  * @param  {Agent}    [agent]  Agent
  * @async
  */
-export async function refresh(accessToken: string, clientToken: string, requestUser?: boolean, agent?: Agent) {
-  const data = await call(Constants.Mojang.DefaultHost, 'refresh', { accessToken, clientToken, requestUser: requestUser ?? false }, agent)
-  if (data.clientToken !== clientToken) throw new Error('clientToken assertion failed')
-  return [data.accessToken, data]
+export async function refresh(
+  accessToken: string,
+  clientToken: string,
+  requestUser?: boolean,
+  agent?: Agent
+) {
+  const data = await call(
+    Constants.Mojang.DefaultHost,
+    "refresh",
+    { accessToken, clientToken, requestUser: requestUser ?? false },
+    agent
+  );
+  if (data.clientToken !== clientToken)
+    throw new Error("clientToken assertion failed");
+  return [data.accessToken, data];
 }
 
 /**
@@ -53,7 +76,7 @@ export async function refresh(accessToken: string, clientToken: string, requestU
  * @async
  */
 export async function validate(accessToken: string, agent?: Agent) {
-  return call(Constants.Mojang.DefaultHost, 'validate', { accessToken }, agent)
+  return call(Constants.Mojang.DefaultHost, "validate", { accessToken }, agent);
 }
 
 /**
@@ -63,6 +86,15 @@ export async function validate(accessToken: string, agent?: Agent) {
  * @param  {Agent}    [agent]  Agent
  * @async
  */
-export async function signout(username: string, password: string, agent?: Agent) {
-  return call(Constants.Mojang.DefaultHost, 'signout', { username, password }, agent)
+export async function signout(
+  username: string,
+  password: string,
+  agent?: Agent
+) {
+  return call(
+    Constants.Mojang.DefaultHost,
+    "signout",
+    { username, password },
+    agent
+  );
 }

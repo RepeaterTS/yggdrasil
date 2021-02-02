@@ -1,0 +1,17 @@
+{
+  "accessToken": "", 
+  "clientToken": "",
+  "selectedProfile": "The id of the object.id in our profiles array",
+  "profiles": [
+    {
+      "id": "",
+      "legacy": false,
+      "name": ""
+    }
+  ],
+  "username": "",
+  "xboxlive": {
+      "userToken": "",
+      "XSTSToken": ""
+  }
+}
