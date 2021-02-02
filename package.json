@@ -24,7 +24,9 @@
     "typescript": "^4.1.3"
   },
   "dependencies": {
+    "@azure/msal-node": "^1.0.0-beta.5",
     "@repeaterts/utilities": "^1.0.9",
+    "@xboxreplay/xboxlive-auth": "^3.3.3",
     "fs-nextra": "^0.5.1",
     "node-fetch": "^2.6.1",
     "uuid": "^8.3.2"

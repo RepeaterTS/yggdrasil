@@ -10,7 +10,9 @@ export class CacheManager {
     private readonly baseDirectory: string;
 
     constructor(directory?: string) {
+        if (directory && directory.length === 0) dirname(require.main?.filename as string), 'cache')
         this.baseDirectory = resolve(directory ?? dirname(require.main?.filename as string), 'cache') ?? cacheLocation() ?? '.'
+        this.init()
     }
 
     /**
