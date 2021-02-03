@@ -18,8 +18,14 @@ export interface schema {
   ];
   username: string;
   xboxlive?: {
-    userHash: string;
-    XSTSToken: string;
+    userHash: {
+      expires: string;
+      token: string;
+    };
+    XSTSToken: {
+      expires: string;
+      token: string;
+    };
   };
 }
 
@@ -32,7 +38,7 @@ export default class DeviceCodeAuthentication extends CacheManager {
 
   public constructor(
     options: { username: string; cacheDirectory?: string },
-    private readonly callback?: () => void
+    private readonly callback?: (response: Record<string, unknown>) => void
   ) {
     super(options.cacheDirectory);
 
@@ -65,8 +71,7 @@ export default class DeviceCodeAuthentication extends CacheManager {
     this.msal = new msal.PublicClientApplication(config);
 
     void this.get(this.username).then((user) => {
-      if (!user) this.create(this.username, {});
-      this.callback?.();
+      if (!user) void this.create(this.username, {});
     });
   }
 
@@ -104,7 +109,7 @@ export default class DeviceCodeAuthentication extends CacheManager {
         "User-Agent": "node-minecraft-protocol",
       },
       body: JSON.stringify({
-        identityToken: `XBL3.0 x=${xsts.userHash};${xsts.XSTSToken}`,
+        identityToken: `XBL3.0 x=${xsts?.userHash};${xsts?.XSTSToken}`,
       }),
     }).then((res) => {
       if (res.ok) return res.json();
@@ -127,41 +132,110 @@ export default class DeviceCodeAuthentication extends CacheManager {
     const xsts: Partial<schema> = (await this.get(
       this.username
     )) as Partial<schema>;
-    if (xsts.xboxlive?.XSTSToken && xsts?.xboxlive.userHash)
-      return xsts.xboxlive;
-    // return null;
-    xboxlive.exchangeUserTokenForXSTSIdentity;
 
-    // verify tokens
-    // - get xbox user token
-    // - get xsts token
-    // --check if any are not found. return false and proceed to get MSA Token
-    // --check if user token and xsts token are valid. if true do ----
-    // -- check if user token is valid but xsts token is not, exhangeUserTokenforXSTSIDENT(ut.data) return true?
-    // return false GET MSA TOKEN
-    // check if msa token starts with 'd=, if not add it.
-    // do this:  const xblUserToken = await XboxLiveAuth.exchangeRpsTicketForUserToken(msaAccessToken)
-    // this.update(this.username, {xboxlive.usertoken: xblUserToken })
-    // get xsts \/ do this i think
-    /**
-     *     const xsts = await XboxLiveAuth.exchangeUserTokenForXSTSIdentity(
-      xblUserToken.Token, { XSTSRelyingParty: this.relyingParty, raw: false }
-    )
-    this.setCachedXstsToken(xsts) <-- this.update(this.username, { xboxlive.token: xsts }) 
-     */
+    // I don't know what I was planning here.
+    /** if (xsts.xboxlive?.XSTSToken && xsts?.xboxlive.userHash) {
+      if (this.isTokenValid(xsts.xboxlive.XSTSToken.expires) && this.isTokenValid(xsts.xboxlive.userHash.expires))
+    } **/
+
+    if (xsts.xboxlive?.XSTSToken && xsts.xboxlive?.userHash) {
+      if (this.isTokenValid(xsts.xboxlive.XSTSToken.expires)) {
+        if (this.isTokenValid(xsts.xboxlive.userHash.expires)) {
+          return {
+            userHash: xsts.xboxlive.userHash.token,
+            XSTSToken: xsts.xboxlive.XSTSToken.token,
+          };
+        }
+        const exchange = await this.refreshXSTSToken(
+          xsts.xboxlive.userHash.token
+        );
+        return { userHash: exchange.userHash, XSTSToken: exchange.XSTSToken };
+      }
+    }
+    const MSAToken = await this.getMSAToken();
+    const UserToken = await this.refreshUserToken(MSAToken);
+    const XSTSToken = await this.refreshXSTSToken(UserToken);
+    return XSTSToken;
   }
 
   public async getMSAToken(): Promise<string> {
-    // verify tokens
-    // -get access token
-    // -get refresh token
-    // --check if any are not found. -> return false, we need to device code
-    // -verify if valid access token and we have refresh token, -> we need to refresh
-    // preform device code.
-    // -if we have token return microsoft access token.
-    // -else preform device code auth
-    // --await tell the user to please authenticate now, if codecallback, do callback for shitty electron users.
-    // once satifisfied, return accessToken.
+    const token = await this.get(this.username);
+    if (token.accessToken) return token.accessToken;
+
+    const res = await this.preformDeviceCodeAuth(
+      (response: Record<string, unknown>) => {
+        console.log(
+          `[@repeaterts/yggdrasil] First time logging in. Please authenticate with Microsoft:\n${response.message}`
+        );
+        this.callback?.(response);
+      }
+    );
+
+    console.log(
+      `[@repeaterts/yggdrasil] Signed in as ${res.account.username}.`
+    );
+    return res.accessToken;
+  }
+
+  public async refreshUserToken(msaAccessToken: string) {
+    if (!msaAccessToken.startsWith("d="))
+      msaAccessToken = `d=${msaAccessToken}`;
+    const xblusertoken = await xboxlive
+      .exchangeRpsTicketForUserToken(msaAccessToken)
+      .catch((err) => {
+        throw new Error(
+          `Unable to exchange RPS Ticket for User Token.\nPlease create a new issue: https://github.com/RepeaterTS/yggdrasil/issues with the following:\n${err}`
+        );
+      });
+    await this.update(this.username, {
+      xboxlive: {
+        userHash: {
+          token: xblusertoken,
+        },
+      },
+    });
+    return xblusertoken;
+  }
+
+  public async refreshXSTSToken(UserToken: string) {
+    const exchange = await xboxlive
+      .exchangeUserTokenForXSTSIdentity(UserToken, {
+        XSTSRelyingParty: Constants.XSTSRelyingParty,
+        raw: false,
+      })
+      .catch((err) => {
+        throw Error(`Unable to exchange user token for a new identity: ${err}`);
+      });
+    await this.update(this.username, {
+      xboxlive: {
+        userHash: {
+          token: exchange.userHash,
+          expires: exchange.expiresOn,
+        },
+        XSTSToken: {
+          token: exchange.XSTSToken,
+          expires: exchange.expiresOn,
+        },
+      },
+    });
+    return exchange;
+  }
+
+  public async preformDeviceCodeAuth(callback) {
+    const deviceCodeRequest = {
+      deviceCodeCallback: (resp) => {
+        callback(resp);
+      },
+      scopes: Constants.MSAL_SCOPES,
+    };
+    this.msal
+      .acquireTokenByDeviceCode(deviceCodeRequest)
+      .then((response) => void Promise.resolve(response))
+      .catch((error) => void Promise.reject(error));
+  }
+
+  public isTokenValid(expires: string) {
+    return Boolean(new Date(expires as any) - Date.now() > 1000);
   }
 }
 
